@@ -1,0 +1,10 @@
+**/.git
+**/node_modules
+**/.local
+**/data
+**/.env
+**/android
+**/dist
+**/artifacts
+open-im-sdk-flutter
+openim-flutter-demo

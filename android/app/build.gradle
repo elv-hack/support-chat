@@ -1,0 +1,36 @@
+import groovy.json.JsonOutput
+plugins { id 'com.android.application' }
+def releaseTask = gradle.startParameter.taskNames.any { it.toLowerCase().contains('release') }
+def signingKeys = ['ANDROID_KEYSTORE_PATH','ANDROID_STORE_PASSWORD','ANDROID_KEY_ALIAS','ANDROID_KEY_PASSWORD']
+def hasSigning = signingKeys.every { System.getenv(it) }
+if (releaseTask && !hasSigning) throw new GradleException('Release signing requires ANDROID_KEYSTORE_PATH, ANDROID_STORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD')
+def appVersion = project.findProperty('appVersion') ?: '0.2.0'
+def appVersionCode = (project.findProperty('appVersionCode') ?: '2').toInteger()
+if (appVersionCode < 1) throw new GradleException('appVersionCode must be positive')
+android {
+    namespace 'com.supportchat.app'
+    compileSdk 36
+    defaultConfig {
+        applicationId 'com.supportchat'; minSdk 26; targetSdk 36
+        versionCode appVersionCode; versionName appVersion
+        buildConfigField 'String','SERVER_URL',JsonOutput.toJson(project.findProperty('serverUrl') ?: '')
+    }
+    signingConfigs {
+        if (hasSigning) {
+            release {
+                storeFile file(System.getenv('ANDROID_KEYSTORE_PATH'))
+                storePassword System.getenv('ANDROID_STORE_PASSWORD')
+                keyAlias System.getenv('ANDROID_KEY_ALIAS')
+                keyPassword System.getenv('ANDROID_KEY_PASSWORD')
+            }
+        }
+    }
+    buildTypes { release { if (hasSigning) signingConfig signingConfigs.release } }
+    flavorDimensions += 'role'
+    productFlavors {
+        customer { dimension 'role'; applicationIdSuffix '.customer'; resValue 'string','app_name','一对一'; buildConfigField 'String','ENTRY_PATH','"/customer"' }
+        agent { dimension 'role'; applicationIdSuffix '.agent'; resValue 'string','app_name','一对一 · 客服'; buildConfigField 'String','ENTRY_PATH','"/agent"' }
+    }
+    buildFeatures { buildConfig true; resValues true }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+}

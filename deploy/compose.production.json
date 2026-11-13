@@ -1,0 +1,205 @@
+{
+  "services": {
+    "mongo": {
+      "image": "${MONGO_IMAGE:?Use the release runner}",
+      "restart": "unless-stopped",
+      "environment": {
+        "MONGO_INITDB_ROOT_USERNAME": "root",
+        "MONGO_INITDB_ROOT_PASSWORD": "${MONGO_PASSWORD:?Generate .env first}"
+      },
+      "command": [
+        "mongod",
+        "--wiredTigerCacheSizeGB",
+        "0.5"
+      ],
+      "volumes": [
+        "mongo:/data/db"
+      ],
+      "networks": [
+        "backend"
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "mongosh",
+          "--quiet",
+          "--eval",
+          "db.adminCommand('ping').ok"
+        ],
+        "interval": "10s",
+        "timeout": "5s",
+        "retries": 15
+      },
+      "pull_policy": "never",
+      "logging": {
+        "driver": "json-file",
+        "options": {
+          "max-size": "10m",
+          "max-file": "3"
+        }
+      },
+      "stop_grace_period": "60s",
+      "pids_limit": 256
+    },
+    "redis": {
+      "image": "${REDIS_IMAGE:?Use the release runner}",
+      "restart": "unless-stopped",
+      "environment": {
+        "REDIS_PASSWORD": "${REDIS_PASSWORD:?Generate .env first}"
+      },
+      "command": [
+        "sh",
+        "-c",
+        "exec redis-server --appendonly yes --requirepass \"$$REDIS_PASSWORD\""
+      ],
+      "volumes": [
+        "redis:/data"
+      ],
+      "networks": [
+        "backend"
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD-SHELL",
+          "REDISCLI_AUTH=\"$$REDIS_PASSWORD\" redis-cli ping | grep -q PONG"
+        ],
+        "interval": "10s",
+        "timeout": "5s",
+        "retries": 15
+      },
+      "pull_policy": "never",
+      "logging": {
+        "driver": "json-file",
+        "options": {
+          "max-size": "10m",
+          "max-file": "3"
+        }
+      },
+      "stop_grace_period": "60s",
+      "pids_limit": 256
+    },
+    "openim": {
+      "restart": "unless-stopped",
+      "environment": {
+        "OPENIM_SECRET": "${OPENIM_SECRET:?Generate .env first}",
+        "MONGO_PASSWORD": "${MONGO_PASSWORD:?Generate .env first}",
+        "REDIS_PASSWORD": "${REDIS_PASSWORD:?Generate .env first}"
+      },
+      "depends_on": {
+        "mongo": {
+          "condition": "service_healthy"
+        },
+        "redis": {
+          "condition": "service_healthy"
+        }
+      },
+      "networks": [
+        "backend"
+      ],
+      "image": "${OPENIM_IMAGE:?Use the release runner}",
+      "pull_policy": "never",
+      "logging": {
+        "driver": "json-file",
+        "options": {
+          "max-size": "10m",
+          "max-file": "3"
+        }
+      },
+      "stop_grace_period": "60s",
+      "pids_limit": 256
+    },
+    "gateway": {
+      "restart": "unless-stopped",
+      "environment": {
+        "OPENIM_URL": "http://openim:18002",
+        "OPENIM_SECRET": "${OPENIM_SECRET:?Generate .env first}",
+        "ADMIN_USERNAME": "${ADMIN_USERNAME:-admin}",
+        "ADMIN_PASSWORD": "${ADMIN_PASSWORD:?Generate .env first}"
+      },
+      "depends_on": [
+        "openim"
+      ],
+      "ports": [
+        "127.0.0.1:${GATEWAY_PORT:-8090}:8090"
+      ],
+      "volumes": [
+        "gateway:/data"
+      ],
+      "networks": [
+        "backend",
+        "web"
+      ],
+      "image": "${GATEWAY_IMAGE:?Use the release runner}",
+      "pull_policy": "never",
+      "logging": {
+        "driver": "json-file",
+        "options": {
+          "max-size": "10m",
+          "max-file": "3"
+        }
+      },
+      "stop_grace_period": "60s",
+      "pids_limit": 256,
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "gateway",
+          "healthcheck"
+        ],
+        "interval": "10s",
+        "timeout": "7s",
+        "retries": 18,
+        "start_period": "30s"
+      },
+      "init": true
+    },
+    "caddy": {
+      "image": "${CADDY_IMAGE:?Use the release runner}",
+      "profiles": [
+        "public"
+      ],
+      "restart": "unless-stopped",
+      "environment": {
+        "CHAT_DOMAIN": "${CHAT_DOMAIN:-localhost}"
+      },
+      "ports": [
+        "80:80",
+        "443:443"
+      ],
+      "volumes": [
+        "./Caddyfile:/etc/caddy/Caddyfile:ro",
+        "caddy_data:/data",
+        "caddy_config:/config"
+      ],
+      "depends_on": [
+        "gateway"
+      ],
+      "networks": [
+        "web"
+      ],
+      "pull_policy": "never",
+      "logging": {
+        "driver": "json-file",
+        "options": {
+          "max-size": "10m",
+          "max-file": "3"
+        }
+      },
+      "stop_grace_period": "60s",
+      "pids_limit": 256
+    }
+  },
+  "networks": {
+    "backend": {
+      "internal": true
+    },
+    "web": {}
+  },
+  "volumes": {
+    "mongo": {},
+    "redis": {},
+    "gateway": {},
+    "caddy_data": {},
+    "caddy_config": {}
+  }
+}
