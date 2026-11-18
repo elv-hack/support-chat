@@ -1,0 +1,5 @@
+{$DIRECTORY_DOMAIN} {
+    header Cache-Control "no-store"
+    header X-Content-Type-Options "nosniff"
+    reverse_proxy directory:8095
+}

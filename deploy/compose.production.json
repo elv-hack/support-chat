@@ -114,7 +114,9 @@
         "OPENIM_URL": "http://openim:18002",
         "OPENIM_SECRET": "${OPENIM_SECRET:?Generate .env first}",
         "ADMIN_USERNAME": "${ADMIN_USERNAME:-admin}",
-        "ADMIN_PASSWORD": "${ADMIN_PASSWORD:?Generate .env first}"
+        "ADMIN_PASSWORD": "${ADMIN_PASSWORD:?Generate .env first}",
+        "DIRECTORY_URL": "${DIRECTORY_URL:-}",
+        "DIRECTORY_TOKEN": "${DIRECTORY_TOKEN:-}"
       },
       "depends_on": [
         "openim"

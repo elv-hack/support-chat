@@ -16,6 +16,7 @@ android {
         applicationId 'com.supportchat'; minSdk 26; targetSdk 36
         versionCode appVersionCode; versionName appVersion
         buildConfigField 'String','SERVER_URL',JsonOutput.toJson(project.findProperty('serverUrl') ?: '')
+        buildConfigField 'String','BOOTSTRAP_URL',JsonOutput.toJson(project.findProperty('bootstrapUrl') ?: '')
     }
     signingConfigs {
         if (hasSigning) {
@@ -36,3 +37,5 @@ android {
     buildFeatures { buildConfig true; resValues true }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
 }
+
+dependencies { testImplementation 'junit:junit:4.13.2' }

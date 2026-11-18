@@ -1,0 +1,71 @@
+{
+  "services": {
+    "directory": {
+      "image": "${GATEWAY_IMAGE:?Initialize directory runtime first}",
+      "command": [
+        "gateway",
+        "directory"
+      ],
+      "environment": {
+        "DIRECTORY_LISTEN": "0.0.0.0:8095",
+        "DIRECTORY_DATA_DIR": "/data",
+        "DIRECTORY_TOKEN": "${DIRECTORY_TOKEN:?Initialize directory token}"
+      },
+      "volumes": [
+        "directory:/data"
+      ],
+      "restart": "unless-stopped",
+      "pull_policy": "never",
+      "logging": {
+        "driver": "json-file",
+        "options": {
+          "max-size": "10m",
+          "max-file": "3"
+        }
+      },
+      "pids_limit": 64,
+      "read_only": true,
+      "tmpfs": [
+        "/tmp"
+      ],
+      "security_opt": [
+        "no-new-privileges:true"
+      ],
+      "cap_drop": [
+        "ALL"
+      ]
+    },
+    "caddy": {
+      "image": "${CADDY_IMAGE:?Initialize directory runtime first}",
+      "environment": {
+        "DIRECTORY_DOMAIN": "${DIRECTORY_DOMAIN:?Set stable domain}"
+      },
+      "ports": [
+        "80:80",
+        "443:443"
+      ],
+      "volumes": [
+        "./Caddyfile:/etc/caddy/Caddyfile:ro",
+        "caddy_data:/data",
+        "caddy_config:/config"
+      ],
+      "restart": "unless-stopped",
+      "pull_policy": "never",
+      "depends_on": [
+        "directory"
+      ],
+      "logging": {
+        "driver": "json-file",
+        "options": {
+          "max-size": "10m",
+          "max-file": "3"
+        }
+      }
+    }
+  },
+  "volumes": {
+    "directory": {},
+    "caddy_data": {},
+    "caddy_config": {}
+  }
+}

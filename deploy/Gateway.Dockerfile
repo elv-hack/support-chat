@@ -3,7 +3,8 @@ WORKDIR /src/web
 COPY support-chat/web/package*.json ./
 RUN npm ci
 COPY support-chat/web/ ./
-RUN npm run build
+ARG APP_VERSION=dev
+RUN APP_VERSION=${APP_VERSION} npm run build
 
 FROM golang:1.26-bookworm AS server
 WORKDIR /src/server

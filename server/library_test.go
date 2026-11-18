@@ -236,7 +236,7 @@ func TestLibraryMigrationFromSchemaOnePreservesAccounts(t *testing.T) {
 	var version, count int
 	a.db.QueryRow("PRAGMA user_version").Scan(&version)
 	a.db.QueryRow("SELECT count(*) FROM users").Scan(&count)
-	if version != 2 || count != 3 {
+	if version != schemaVersion || count != 3 {
 		t.Fatal("schema migration lost existing users")
 	}
 }

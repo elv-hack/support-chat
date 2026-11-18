@@ -88,7 +88,7 @@ func (a *App) customers(w http.ResponseWriter, r *http.Request, u User) {
 		return
 	}
 	if r.Method == "GET" {
-		rows, err := a.db.Query("SELECT id,username,name,role,disabled FROM users WHERE role='customer' ORDER BY created DESC")
+		rows, err := a.db.Query("SELECT id,username,name,role,disabled,permissions FROM users WHERE role='customer' ORDER BY created DESC")
 		if err != nil {
 			problem(w, 500, "读取失败")
 			return
@@ -96,7 +96,9 @@ func (a *App) customers(w http.ResponseWriter, r *http.Request, u User) {
 		users := []User{}
 		for rows.Next() {
 			var c User
-			if rows.Scan(&c.ID, &c.Username, &c.Name, &c.Role, &c.Disabled) == nil {
+			var mask int
+			if rows.Scan(&c.ID, &c.Username, &c.Name, &c.Role, &c.Disabled, &mask) == nil {
+				c.Permissions = permissionsFromMask(mask)
 				users = append(users, c)
 			}
 		}
@@ -147,7 +149,7 @@ func (a *App) customers(w http.ResponseWriter, r *http.Request, u User) {
 		problem(w, 409, "账号已存在")
 		return
 	}
-	c := User{ID: "c" + randomID()[:24], Username: in.Username, Name: in.Name, Role: "customer"}
+	c := User{ID: "c" + randomID()[:24], Username: in.Username, Name: in.Name, Role: "customer", Permissions: permissionsFromMask(15)}
 	if err := a.im.ensureUser(r.Context(), c.ID, c.Name); err != nil {
 		problem(w, 503, "OpenIM 创建用户失败")
 		return
@@ -186,6 +188,26 @@ func (a *App) manageUser(w http.ResponseWriter, r *http.Request, u User) {
 		return
 	}
 	switch parts[1] {
+	case "permissions":
+		var in struct {
+			Name        string       `json:"name"`
+			Permissions *Permissions `json:"permissions"`
+		}
+		if !readJSON(w, r, &in) {
+			return
+		}
+		in.Name = strings.TrimSpace(in.Name)
+		if in.Permissions == nil || in.Name == "" || len([]rune(in.Name)) > 40 {
+			problem(w, 400, "请输入 1–40 字客户称呼和完整发送权限")
+			return
+		}
+		if _, err = a.db.Exec("UPDATE users SET name=?,permissions=? WHERE id=?", in.Name, in.Permissions.mask(), c.ID); err != nil {
+			problem(w, 500, "权限保存失败")
+			return
+		}
+		a.publish()
+		writeJSON(w, 200, map[string]bool{"ok": true})
+		return
 	case "password":
 		var in struct {
 			Password string `json:"password"`

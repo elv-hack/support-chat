@@ -23,15 +23,20 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-type Config struct{ Listen, DataDir, WebDir, OpenIMURL, OpenIMSecret, OpenIMAdmin, AgentID, AdminName, AdminPassword string }
+type Config struct {
+	Listen, DataDir, WebDir, OpenIMURL, OpenIMSecret, OpenIMAdmin, AgentID, AdminName, AdminPassword string
+	DirectoryURL, DirectoryToken                                                                     string
+	AllowLocalRouting                                                                                bool
+}
 type User struct {
-	ID         string `json:"id"`
-	Username   string `json:"username"`
-	Name       string `json:"name"`
-	Role       string `json:"role"`
-	Disabled   bool   `json:"disabled"`
-	Unread     int    `json:"unread"`
-	LastActive int64  `json:"lastActive"`
+	Permissions Permissions `json:"permissions"`
+	ID          string      `json:"id"`
+	Username    string      `json:"username"`
+	Name        string      `json:"name"`
+	Role        string      `json:"role"`
+	Disabled    bool        `json:"disabled"`
+	Unread      int         `json:"unread"`
+	LastActive  int64       `json:"lastActive"`
 }
 type session struct {
 	UserID  string
@@ -68,13 +73,17 @@ func env(k, d string) string {
 }
 func main() {
 	syscall.Umask(0077)
+	if len(os.Args) > 1 && os.Args[1] == "directory" {
+		runDirectory()
+		return
+	}
 	if len(os.Args) > 1 && os.Args[1] == "healthcheck" {
 		if err := healthcheck(); err != nil {
 			os.Exit(1)
 		}
 		return
 	}
-	cfg := Config{Listen: env("LISTEN", "127.0.0.1:8090"), DataDir: env("DATA_DIR", "./data"), WebDir: env("WEB_DIR", "../web/dist"), OpenIMURL: env("OPENIM_URL", "http://127.0.0.1:10002"), OpenIMSecret: os.Getenv("OPENIM_SECRET"), OpenIMAdmin: env("OPENIM_ADMIN", "imAdmin"), AgentID: env("AGENT_ID", "support_agent"), AdminName: env("ADMIN_USERNAME", "admin"), AdminPassword: os.Getenv("ADMIN_PASSWORD")}
+	cfg := Config{Listen: env("LISTEN", "127.0.0.1:8090"), DataDir: env("DATA_DIR", "./data"), WebDir: env("WEB_DIR", "../web/dist"), OpenIMURL: env("OPENIM_URL", "http://127.0.0.1:10002"), OpenIMSecret: os.Getenv("OPENIM_SECRET"), OpenIMAdmin: env("OPENIM_ADMIN", "imAdmin"), AgentID: env("AGENT_ID", "support_agent"), AdminName: env("ADMIN_USERNAME", "admin"), AdminPassword: os.Getenv("ADMIN_PASSWORD"), DirectoryURL: os.Getenv("DIRECTORY_URL"), DirectoryToken: os.Getenv("DIRECTORY_TOKEN"), AllowLocalRouting: os.Getenv("ALLOW_LOCAL_ROUTING") == "1"}
 	if cfg.OpenIMSecret == "" {
 		log.Fatal("OPENIM_SECRET is required")
 	}
@@ -189,7 +198,9 @@ func (a *App) revoke(id string) {
 }
 func (a *App) user(id string) (User, error) {
 	var u User
-	err := a.db.QueryRow("SELECT id,username,name,role,disabled FROM users WHERE id=?", id).Scan(&u.ID, &u.Username, &u.Name, &u.Role, &u.Disabled)
+	var mask int
+	err := a.db.QueryRow("SELECT id,username,name,role,disabled,permissions FROM users WHERE id=?", id).Scan(&u.ID, &u.Username, &u.Name, &u.Role, &u.Disabled, &mask)
+	u.Permissions = permissionsFromMask(mask)
 	return u, err
 }
 func token(r *http.Request) string {
@@ -237,6 +248,7 @@ func readJSONLimit(w http.ResponseWriter, r *http.Request, v any, limit int64) b
 func (a *App) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /api/login", a.login)
+	mux.HandleFunc("GET /api/client/config", a.clientConfig)
 	mux.HandleFunc("GET /api/ready", a.ready)
 	mux.HandleFunc("GET /api/version", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 200, map[string]any{"version": buildVersion, "schemaVersion": schemaVersion})
@@ -251,6 +263,10 @@ func (a *App) Handler() http.Handler {
 			return
 		}
 		switch {
+		case r.URL.Path == "/api/admin/settings":
+			a.adminSettings(w, r, u)
+		case r.URL.Path == "/api/admin/connection":
+			a.adminConnection(w, r, u)
 		case strings.HasPrefix(r.URL.Path, "/api/library/"):
 			a.library(w, r, u)
 		case r.URL.Path == "/api/me" && r.Method == "GET":

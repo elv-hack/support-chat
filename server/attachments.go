@@ -63,6 +63,10 @@ func (a *App) upload(w http.ResponseWriter, r *http.Request, u User) {
 		return
 	}
 	kind := r.FormValue("kind")
+	if u.Role != "agent" && !c.Permissions.allows(kind) {
+		problem(w, 403, "客服已关闭此类附件的发送权限")
+		return
+	}
 	mime := http.DetectContentType(b)
 	var duration float64
 	switch kind {
@@ -144,6 +148,10 @@ func (a *App) upload(w http.ResponseWriter, r *http.Request, u User) {
 	fresh, e := a.user(c.ID)
 	if e != nil || fresh.Disabled {
 		problem(w, 403, "账号已停用")
+		return
+	}
+	if u.Role != "agent" && !fresh.Permissions.allows(kind) {
+		problem(w, 403, "客服已关闭此类附件的发送权限")
 		return
 	}
 	var used int64

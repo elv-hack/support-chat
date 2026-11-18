@@ -174,6 +174,9 @@ func (a *App) sendOne(r *http.Request, u, c User, in SendInput, delivery string)
 		p.Kind = att.Kind
 		p.Attachment = &att
 	}
+	if u.Role != "agent" && !fresh.Permissions.allows(p.Kind) {
+		return 403, map[string]string{"error": "客服已关闭此类消息的发送权限"}
+	}
 	// Persist the attempt before calling OpenIM. A timeout is ambiguous: never blindly replay send_msg.
 	tx, err := a.db.Begin()
 	if err != nil {

@@ -2,7 +2,7 @@
 import argparse,hashlib,io,json,os,pathlib,re,shutil,subprocess,tarfile,tempfile,time
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 RELEASES=ROOT/'artifacts/releases'
-FILES=['VERSION.json','README.md','OPERATIONS.md','LIBRARY.md','.gitignore','.gitattributes','manage']
+FILES=['VERSION.json','README.md','OPERATIONS.md','LIBRARY.md','UPDATES.md','.gitignore','.gitattributes','manage']
 DIRS=['server','web/src','android/app/src','android/gradle','deploy','scripts','.github']
 EXTRA=['web/package.json','web/package-lock.json','web/index.html','web/tsconfig.json','web/vite.config.ts','android/app/build.gradle','android/build.gradle','android/settings.gradle','android/gradle.properties','android/gradlew','android/gradlew.bat']
 
@@ -63,17 +63,17 @@ def verify(directory,kind=None):
         if not {'images.tar','compose.json','Caddyfile'}<=m['files'].keys():raise ValueError('Incomplete bundle')
     return m
 
-def check():
+def check(version=None):
     run(['go','test','-race','./...'],ROOT/'server');run(['go','vet','./...'],ROOT/'server')
     run(['python3','-m','unittest','discover','-s','scripts','-p','test_*.py'])
-    run(['npm','ci'],ROOT/'web');run(['npm','run','build'],ROOT/'web')
+    run(['npm','ci'],ROOT/'web');run(['npm','run','build'],ROOT/'web',env={**os.environ,**({'APP_VERSION':version} if version else {})})
 
 def build(args):
     cfg=json.loads((ROOT/'VERSION.json').read_text());version=checked_version(args.version or cfg['version']);code=args.version_code or cfg['versionCode']
     if not 0<code<2100000000:raise ValueError('Invalid Android version code')
     target=RELEASES/version
     if target.exists():raise ValueError('Release version already exists; use a new version')
-    before=fingerprint();check();RELEASES.mkdir(parents=True,exist_ok=True)
+    before=fingerprint();check(version);RELEASES.mkdir(parents=True,exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='.building-',dir=RELEASES) as work:
         tmp=pathlib.Path(work);snapshot(tmp/'source.tar.gz',cfg['openimCommit'])
         run(['go','build','-mod=readonly','-trimpath','-ldflags',f'-X main.buildVersion={version}','-o',tmp/'gateway','.'],ROOT/'server')
@@ -85,14 +85,16 @@ def build(args):
             elif pathlib.Path('/usr/lib/jvm/java-21-openjdk').exists():env['JAVA_HOME']='/usr/lib/jvm/java-21-openjdk'
             mode=args.android.capitalize()
             cmd=['./gradlew',f'assembleCustomer{mode}',f'assembleAgent{mode}',f'-PappVersion={version}',f'-PappVersionCode={code}','--console=plain']
+            cmd += ['testCustomerDebugUnitTest','testAgentDebugUnitTest']
             if args.server_url:cmd.append('-PserverUrl='+args.server_url)
+            if args.bootstrap_url:cmd.append('-PbootstrapUrl='+args.bootstrap_url)
             run(cmd,ROOT/'android',env=env)
             for role in ['customer','agent']:
                 src=ROOT/f'android/app/build/outputs/apk/{role}/{args.android}/app-{role}-{args.android}.apk'
                 if not src.exists():raise ValueError(f'Expected signed APK missing: {src}')
                 shutil.copy2(src,tmp/f'{role}-{args.android}.apk')
         if fingerprint()!=before:raise ValueError('Source changed during build; discard and rebuild')
-        seal(tmp,{'format':1,'kind':'build','version':version,'versionCode':code,'schemaVersion':cfg['schemaVersion'],'openimCommit':cfg['openimCommit'],'sourceFingerprint':before,'android':args.android,'builtAt':time.strftime('%Y-%m-%dT%H:%M:%SZ',time.gmtime())})
+        seal(tmp,{'format':1,'kind':'build','version':version,'versionCode':code,'schemaVersion':cfg['schemaVersion'],'openimCommit':cfg['openimCommit'],'sourceFingerprint':before,'android':args.android,'bootstrapUrl':args.bootstrap_url or '', 'serverUrl':args.server_url or '','builtAt':time.strftime('%Y-%m-%dT%H:%M:%SZ',time.gmtime())})
         os.rename(tmp,target)
     print(f'Build ready: {target}')
 
@@ -122,7 +124,8 @@ def bundle(args):
         run(['docker','image','save','-o',tmp/'images.tar',*images.values()])
         shutil.copy2(app/'deploy/compose.production.json',tmp/'compose.json');shutil.copy2(app/'deploy/Caddyfile',tmp/'Caddyfile')
         # Include the exact operations runner that produced this bundle; deploying requires Python and Docker only.
-        for file in ['ops.py','release.py']:shutil.copy2(app/'scripts'/file,tmp/file)
+        for file in ['directory.compose.json','Directory.Caddyfile']:shutil.copy2(app/'deploy'/file,tmp/file)
+        for file in ['ops.py','release.py','directory_ops.py']:shutil.copy2(app/'scripts'/file,tmp/file)
         for file in src.glob('*.apk'):shutil.copy2(file,tmp/file.name)
         seal(tmp,{**{k:v for k,v in m.items() if k!='files'},'kind':'bundle','images':images,'openimBuildFingerprint':openim_fingerprint})
         os.rename(tmp,target)
@@ -130,7 +133,7 @@ def bundle(args):
 
 def main(argv=None):
     p=argparse.ArgumentParser();sub=p.add_subparsers(dest='command',required=True)
-    sub.add_parser('check');b=sub.add_parser('build');b.add_argument('--version');b.add_argument('--version-code',type=int);b.add_argument('--android',choices=['none','debug','release'],default='debug');b.add_argument('--server-url')
+    sub.add_parser('check');b=sub.add_parser('build');b.add_argument('--version');b.add_argument('--version-code',type=int);b.add_argument('--android',choices=['none','debug','release'],default='debug');b.add_argument('--server-url');b.add_argument('--bootstrap-url')
     b=sub.add_parser('bundle');b.add_argument('release');b.add_argument('--base',help='Reuse MongoDB/Redis/Caddy image IDs from a prior bundle')
     a=p.parse_args(argv)
     if a.command=='check':check()

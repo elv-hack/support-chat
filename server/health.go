@@ -26,7 +26,7 @@ func (a *App) ready(w http.ResponseWriter, r *http.Request) {
 		problem(w, 503, "message service unavailable")
 		return
 	}
-	writeJSON(w, 200, map[string]any{"status": "ready", "version": buildVersion, "schemaVersion": schemaVersion})
+	writeJSON(w, 200, map[string]any{"status": "ready", "version": buildVersion, "schemaVersion": schemaVersion, "serviceId": a.serviceID(), "protocol": 1})
 }
 func healthcheck() error {
 	client := &http.Client{Timeout: 6 * time.Second}

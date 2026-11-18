@@ -46,7 +46,7 @@ class Ops:
         self.root.mkdir(parents=True,exist_ok=True);os.chmod(self.root,0o700)
         if (self.root/'config.json').exists() or (self.root/'.env').exists():raise ValueError('Runtime already initialized; no credentials overwritten')
         secret={k:secrets.token_hex(24) for k in ['OPENIM_SECRET','MONGO_PASSWORD','REDIS_PASSWORD','ADMIN_PASSWORD']}
-        secret.update(ADMIN_USERNAME='admin',CHAT_DOMAIN='chat.example.com',GATEWAY_PORT=str(port),PUBLIC_HTTPS='0')
+        secret.update(ADMIN_USERNAME='admin',CHAT_DOMAIN='chat.example.com',GATEWAY_PORT=str(port),PUBLIC_HTTPS='0',DIRECTORY_URL='',DIRECTORY_TOKEN='')
         (self.root/'.env').write_text(''.join(k+'='+v+'\n' for k,v in secret.items()));os.chmod(self.root/'.env',0o600)
         atomic(self.root/'config.json',{'project':project});self.save({'current':None,'previous':None,'pending':None})
         print(f'Initialized {self.root}; edit .env for domain / PUBLIC_HTTPS. Initial admin password is ADMIN_PASSWORD in that file.')
