@@ -2,6 +2,10 @@
 
 **当前交付：本机验收版，未部署公网。** 用户端、客服端均为 Vue Web 页面 + 原生 Android WebView 壳。消息写入和历史读取真正使用当前工作区的 OpenIM Server；不在客户端引入 OpenIM SDK，不创建客户端消息数据库。
 
+## 快捷回复与业务介绍（0.3.0）
+
+客服可在「回复与业务资料」中保存常见问答，一键发送或临时修改后发送。业务介绍支持四级分类、多章节图文、排序和选择章节发送；中断后可继续同一任务，避免重复投递。模板只存服务器，客户只能读取实际发给自己的内容。操作说明、限制及 schema 2 升级注意事项见 [LIBRARY.md](LIBRARY.md)。
+
 ## 统一构建与运维（2026-11-14）
 
 新增 `./manage check / build / bundle / deploy / backup / rollback / recover / restore / status`。版本化产物、正式安卓签名入口、就绪检查、升级前冷备份、故障回滚与空环境恢复说明见 [OPERATIONS.md](OPERATIONS.md)。本机开发入口保留不变；Docker/远端 CI 尚未实跑，不能等同于生产验收通过。

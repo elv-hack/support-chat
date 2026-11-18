@@ -108,34 +108,45 @@ func (a *App) history(w http.ResponseWriter, r *http.Request, u, c User) {
 	}
 	writeJSON(w, 200, map[string]any{"messages": list, "before": next, "maxSeq": maxSeq})
 }
+
+type SendInput struct {
+	ID           string `json:"id"`
+	Text         string `json:"text"`
+	AttachmentID string `json:"attachmentId"`
+}
+
 func (a *App) send(w http.ResponseWriter, r *http.Request, u, c User) {
-	var in struct {
-		ID           string `json:"id"`
-		Text         string `json:"text"`
-		AttachmentID string `json:"attachmentId"`
-	}
+	var in SendInput
 	if !readJSON(w, r, &in) {
 		return
 	}
+	status, result := a.sendOne(r, u, c, in, "")
+	writeJSON(w, status, result)
+}
+
+// Shared by ordinary messages and resumable library deliveries; each message keeps its own idempotency key.
+func (a *App) sendOne(r *http.Request, u, c User, in SendInput, delivery string) (int, map[string]string) {
 	if len(in.ID) < 16 || len(in.ID) > 80 {
-		problem(w, 400, "消息标识无效")
-		return
+		return 400, map[string]string{"error": "消息标识无效"}
 	}
 	in.Text = strings.TrimSpace(in.Text)
 	if len([]rune(in.Text)) > 4000 || (in.Text == "") == (in.AttachmentID == "") {
-		problem(w, 400, "请输入 1–4000 字文字，或选择一个附件")
-		return
+		return 400, map[string]string{"error": "请输入 1–4000 字文字，或选择一个附件"}
 	}
 	a.mutation.Lock()
 	defer a.mutation.Unlock()
 	if _, err := a.authenticate(r); err != nil {
-		problem(w, 401, "请重新登录")
-		return
+		return 401, map[string]string{"error": "请重新登录"}
+	}
+	if delivery != "" {
+		var cancelled bool
+		if a.db.QueryRow("SELECT cancelled FROM library_deliveries WHERE id=? AND customer=? AND owner=?", delivery, c.ID, u.ID).Scan(&cancelled) != nil || cancelled {
+			return 409, map[string]string{"error": "本次发送已结束或会话已清空，请勿继续旧任务"}
+		}
 	}
 	fresh, e := a.user(c.ID)
 	if e != nil || fresh.Disabled {
-		problem(w, 403, "此客户账号已停用")
-		return
+		return 403, map[string]string{"error": "此客户账号已停用"}
 	}
 	b, _ := json.Marshal(in)
 	sum := sha256.Sum256(b)
@@ -144,26 +155,21 @@ func (a *App) send(w http.ResponseWriter, r *http.Request, u, c User) {
 	err := a.db.QueryRow("SELECT fingerprint,state,sender,customer FROM sends WHERE id=?", in.ID).Scan(&oldFP, &state, &sender, &customer)
 	if err == nil {
 		if oldFP != fp || sender != u.ID || customer != c.ID {
-			problem(w, 409, "消息标识已被使用")
-			return
+			return 409, map[string]string{"error": "消息标识已被使用"}
 		}
 		if state == "uncertain" || state == "sending" {
-			problem(w, 409, "发送结果待确认，请刷新记录；系统不会自动重复发送")
-			return
+			return 409, map[string]string{"error": "发送结果待确认，请刷新记录；系统不会自动重复发送"}
 		}
 		if state == "deleted" || state == "deleted_pending" {
-			problem(w, 409, "此消息已被删除")
-			return
+			return 409, map[string]string{"error": "此消息已被删除"}
 		}
-		writeJSON(w, 200, map[string]string{"state": state})
-		return
+		return 200, map[string]string{"state": state}
 	}
 	p := Payload{Version: 1, ID: in.ID, Kind: "text", Text: in.Text}
 	if in.AttachmentID != "" {
 		att, e := a.getAttachment(in.AttachmentID)
 		if e != nil || att.Owner != u.ID || att.Customer != c.ID || att.Deleted || att.SendID != "" {
-			problem(w, 400, "附件无效或已发送")
-			return
+			return 400, map[string]string{"error": "附件无效或已发送"}
 		}
 		p.Kind = att.Kind
 		p.Attachment = &att
@@ -171,8 +177,7 @@ func (a *App) send(w http.ResponseWriter, r *http.Request, u, c User) {
 	// Persist the attempt before calling OpenIM. A timeout is ambiguous: never blindly replay send_msg.
 	tx, err := a.db.Begin()
 	if err != nil {
-		problem(w, 500, "无法保存发送状态")
-		return
+		return 500, map[string]string{"error": "无法保存发送状态"}
 	}
 	defer tx.Rollback()
 	_, err = tx.Exec("INSERT INTO sends(id,customer,sender,fingerprint,state,created) VALUES(?,?,?,?,'sending',?)", in.ID, c.ID, u.ID, fp, time.Now().UnixMilli())
@@ -180,12 +185,10 @@ func (a *App) send(w http.ResponseWriter, r *http.Request, u, c User) {
 		_, err = tx.Exec("UPDATE attachments SET send_id=? WHERE id=?", in.ID, in.AttachmentID)
 	}
 	if err != nil {
-		problem(w, 500, "无法保存发送状态")
-		return
+		return 500, map[string]string{"error": "无法保存发送状态"}
 	}
 	if err = tx.Commit(); err != nil {
-		problem(w, 500, "无法保存发送状态")
-		return
+		return 500, map[string]string{"error": "无法保存发送状态"}
 	}
 	receiver := a.cfg.AgentID
 	if u.Role == "agent" {
@@ -194,15 +197,13 @@ func (a *App) send(w http.ResponseWriter, r *http.Request, u, c User) {
 	remoteID, err := a.im.send(r.Context(), u.ID, receiver, u.Name, p)
 	if err != nil {
 		_, _ = a.db.Exec("UPDATE sends SET state='uncertain' WHERE id=?", in.ID)
-		problem(w, 502, "发送结果待确认，请查看记录后再操作；系统不会自动重复发送")
-		return
+		return 502, map[string]string{"error": "发送结果待确认，请查看记录后再操作；系统不会自动重复发送"}
 	}
 	if _, err = a.db.Exec("UPDATE sends SET state='accepted',remote_id=? WHERE id=?", remoteID, in.ID); err != nil {
-		problem(w, 500, "消息已提交，状态保存失败，请刷新核实")
-		return
+		return 500, map[string]string{"error": "消息已提交，状态保存失败，请刷新核实"}
 	}
 	a.publish()
-	writeJSON(w, 201, map[string]string{"state": "accepted"})
+	return 201, map[string]string{"state": "accepted"}
 }
 func (a *App) deleteMessages(w http.ResponseWriter, r *http.Request, c User) {
 	a.mutation.Lock()
@@ -260,6 +261,12 @@ func (a *App) deleteMessages(w http.ResponseWriter, r *http.Request, c User) {
 		if err == nil {
 			_, err = tx.Exec("UPDATE attachments SET deleted=1 WHERE customer=?", c.ID)
 		}
+		if err == nil {
+			_, err = tx.Exec("UPDATE library_deliveries SET cancelled=1,messages='[]' WHERE customer=?", c.ID)
+		}
+		if err == nil {
+			_, err = tx.Exec("DELETE FROM library_delivery_assets WHERE delivery IN (SELECT id FROM library_deliveries WHERE customer=?)", c.ID)
+		}
 		// Range tombstones are compact; a persistent purge cursor physically removes old OpenIM content.
 		if err == nil {
 			_, err = tx.Exec("INSERT INTO purge_ranges(customer,upto,cursor) VALUES(?,?,1) ON CONFLICT(customer) DO UPDATE SET upto=max(upto,excluded.upto)", c.ID, maxSeq)
@@ -271,6 +278,9 @@ func (a *App) deleteMessages(w http.ResponseWriter, r *http.Request, c User) {
 		}
 		if err == nil {
 			_, err = tx.Exec("UPDATE attachments SET deleted=1 WHERE send_id=? AND customer=?", sendID, c.ID)
+		}
+		if err == nil {
+			err = pruneCustomerDeliveriesTx(tx, c.ID)
 		}
 	}
 	if err != nil {

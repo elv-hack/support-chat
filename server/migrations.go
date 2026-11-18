@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-const schemaVersion = 1
+const schemaVersion = 2
 
 // All migrations are atomic; an old executable refuses a newer database schema.
 func migrate(db *sql.DB) error {
@@ -64,7 +64,12 @@ func migrate(db *sql.DB) error {
 		}
 	}
 
-	if _, err = tx.Exec("PRAGMA user_version=1"); err != nil {
+	if _, err = tx.Exec(`CREATE TABLE IF NOT EXISTS library_entries(id TEXT PRIMARY KEY,kind TEXT NOT NULL,title TEXT NOT NULL,category TEXT NOT NULL,sections TEXT NOT NULL,version INTEGER NOT NULL,updated INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS library_images(id TEXT PRIMARY KEY,name TEXT NOT NULL,mime TEXT NOT NULL,size INTEGER NOT NULL,created INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS library_deliveries(id TEXT PRIMARY KEY,customer TEXT NOT NULL,owner TEXT NOT NULL,title TEXT NOT NULL,fingerprint TEXT NOT NULL,messages TEXT NOT NULL,created INTEGER NOT NULL,cancelled INTEGER NOT NULL DEFAULT 0);
+CREATE INDEX IF NOT EXISTS library_delivery_customer ON library_deliveries(customer,created);
+CREATE TABLE IF NOT EXISTS library_delivery_assets(delivery TEXT NOT NULL,attachment TEXT PRIMARY KEY);
+PRAGMA user_version=2;`); err != nil {
 		return err
 	}
 	return tx.Commit()

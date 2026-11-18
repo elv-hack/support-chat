@@ -2,7 +2,7 @@
 import argparse,hashlib,io,json,os,pathlib,re,shutil,subprocess,tarfile,tempfile,time
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 RELEASES=ROOT/'artifacts/releases'
-FILES=['VERSION.json','README.md','OPERATIONS.md','manage']
+FILES=['VERSION.json','README.md','OPERATIONS.md','LIBRARY.md','.gitignore','.gitattributes','manage']
 DIRS=['server','web/src','android/app/src','android/gradle','deploy','scripts','.github']
 EXTRA=['web/package.json','web/package-lock.json','web/index.html','web/tsconfig.json','web/vite.config.ts','android/app/build.gradle','android/build.gradle','android/settings.gradle','android/gradle.properties','android/gradlew','android/gradlew.bat']
 

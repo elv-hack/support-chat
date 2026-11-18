@@ -150,7 +150,7 @@ func (a *App) maintenance(ctx context.Context) {
 			}
 			a.mu.Unlock()
 			a.mutation.Lock()
-			rows, err := a.db.Query("SELECT id FROM attachments WHERE deleted=1 OR (send_id='' AND created<?)", time.Now().Add(-24*time.Hour).UnixMilli())
+			rows, err := a.db.Query("SELECT id FROM attachments WHERE deleted=1 OR (send_id='' AND created<? AND NOT EXISTS (SELECT 1 FROM library_delivery_assets WHERE attachment=attachments.id))", time.Now().Add(-24*time.Hour).UnixMilli())
 			if err == nil {
 				var ids []string
 				for rows.Next() {
@@ -165,6 +165,7 @@ func (a *App) maintenance(ctx context.Context) {
 					}
 				}
 			}
+			a.cleanupLibraryImages()
 			a.mutation.Unlock()
 		}
 	}
@@ -216,7 +217,10 @@ func problem(w http.ResponseWriter, status int, msg string) {
 	writeJSON(w, status, map[string]string{"error": msg})
 }
 func readJSON(w http.ResponseWriter, r *http.Request, v any) bool {
-	r.Body = http.MaxBytesReader(w, r.Body, 32768)
+	return readJSONLimit(w, r, v, 32768)
+}
+func readJSONLimit(w http.ResponseWriter, r *http.Request, v any, limit int64) bool {
+	r.Body = http.MaxBytesReader(w, r.Body, limit)
 	d := json.NewDecoder(r.Body)
 	d.DisallowUnknownFields()
 	if err := d.Decode(v); err != nil {
@@ -247,6 +251,8 @@ func (a *App) Handler() http.Handler {
 			return
 		}
 		switch {
+		case strings.HasPrefix(r.URL.Path, "/api/library/"):
+			a.library(w, r, u)
 		case r.URL.Path == "/api/me" && r.Method == "GET":
 			writeJSON(w, 200, u)
 		case r.URL.Path == "/api/logout" && r.Method == "POST":
