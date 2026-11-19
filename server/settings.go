@@ -47,7 +47,7 @@ func (p Permissions) allows(kind string) bool {
 	return false
 }
 
-const defaultSettingsJSON = `{"brandName":"一对一","agentName":"专属客服","welcomeTitle":"你好，很高兴为你服务","welcomeText":"文字、图片或语音，选择你喜欢的方式。","announcement":"","primaryColor":"#71f6b1"}`
+const defaultSettingsJSON = `{"brandName":"echat","agentName":"专属客服","welcomeTitle":"","welcomeText":"","announcement":"","primaryColor":"#71f6b1"}`
 
 type AppSettings struct {
 	BrandName    string `json:"brandName"`
@@ -73,6 +73,9 @@ func (a *App) settings() (AppSettings, error) {
 		return s, err
 	}
 	err = json.Unmarshal([]byte(raw), &s)
+	if s.BrandName == "一对一" {
+		s.BrandName = "echat"
+	}
 	s.Revision = rev
 	return s, err
 }
@@ -114,7 +117,7 @@ func (a *App) adminSettings(w http.ResponseWriter, r *http.Request, u User) {
 	s.WelcomeTitle = strings.TrimSpace(s.WelcomeTitle)
 	s.WelcomeText = strings.TrimSpace(s.WelcomeText)
 	s.Announcement = strings.TrimSpace(s.Announcement)
-	if s.BrandName == "" || len([]rune(s.BrandName)) > 24 || s.AgentName == "" || len([]rune(s.AgentName)) > 24 || s.WelcomeTitle == "" || len([]rune(s.WelcomeTitle)) > 80 || len([]rune(s.WelcomeText)) > 500 || len([]rune(s.Announcement)) > 500 || !colorPattern.MatchString(s.PrimaryColor) {
+	if s.BrandName == "" || len([]rune(s.BrandName)) > 24 || s.AgentName == "" || len([]rune(s.AgentName)) > 24 || len([]rune(s.WelcomeTitle)) > 80 || len([]rune(s.WelcomeText)) > 500 || len([]rune(s.Announcement)) > 500 || !colorPattern.MatchString(s.PrimaryColor) {
 		problem(w, 400, "请填写有效名称、欢迎文字和主题色，公告最多 500 字")
 		return
 	}

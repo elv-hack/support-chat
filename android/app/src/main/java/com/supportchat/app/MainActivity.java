@@ -49,8 +49,7 @@ public class MainActivity extends Activity {
     private void showSetup(){
         generation++;resolving=false;destroyChat();
         LinearLayout layout=new LinearLayout(this);layout.setOrientation(LinearLayout.VERTICAL);layout.setPadding(40,100,40,40);layout.setBackgroundColor(Color.rgb(7,13,9));
-        TextView title=new TextView(this);title.setText("一对一 · 连接设置");title.setTextSize(25);layout.addView(title);
-        TextView tip=new TextView(this);tip.setText("填写管理员提供的独立配置入口。业务域名更换后，应用会从此入口取得新地址。旧版直连模式可仅填写业务地址。连接设置会结束当前会话。");tip.setPadding(0,24,0,20);layout.addView(tip);
+        TextView title=new TextView(this);title.setText("echat · 连接设置");title.setTextSize(25);layout.addView(title);
         EditText entry=addressInput(layout,"固定配置入口 https://config.example.com",directory);
         EditText direct=addressInput(layout,"业务地址（直连模式）",server);
         TextView error=new TextView(this);layout.addView(error);
@@ -122,7 +121,7 @@ public class MainActivity extends Activity {
         WebView.setWebContentsDebuggingEnabled(false);
         web.clearCache(true);web.clearFormData();web.clearHistory();
         web.setWebViewClient(new WebViewClient(){
-            @Override public boolean shouldOverrideUrlLoading(WebView view,WebResourceRequest request){if(request.isForMainFrame()&&"supportchat://refresh".equals(request.getUrl().toString())){view.post(()->checkUpdate());return true;}return !sameOrigin(request.getUrl());}
+            @Override public boolean shouldOverrideUrlLoading(WebView view,WebResourceRequest request){if(request.isForMainFrame()&&"supportchat://refresh".equals(request.getUrl().toString())){view.post(()->checkUpdate());return true;}return !sameOrigin(request.getUrl()) || (request.isForMainFrame() && !BuildConfig.ENTRY_PATH.equals(request.getUrl().getEncodedPath()));}
             @Override public void onReceivedError(WebView view,WebResourceRequest request,WebResourceError error){if(request.isForMainFrame()&&view==web&&!"about:blank".equals(request.getUrl().toString()))runOnUiThread(()->{if(view==web)showError();});}
         });
         web.setDownloadListener((url,agent,disposition,type,length)->Toast.makeText(this,"此应用不支持保存附件到本机",Toast.LENGTH_SHORT).show());

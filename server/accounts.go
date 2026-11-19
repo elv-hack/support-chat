@@ -23,6 +23,16 @@ func (a *App) login(w http.ResponseWriter, r *http.Request) {
 	if !readJSON(w, r, &in) {
 		return
 	}
+	switch r.URL.Path {
+	case "/api/customer/login":
+		in.Role = "customer"
+	case "/api/agent/login":
+		in.Role = "agent"
+	}
+	if in.Role != "agent" && in.Role != "customer" {
+		problem(w, 400, "请选择有效的登录入口")
+		return
+	}
 	host, _, _ := net.SplitHostPort(r.RemoteAddr)
 	if host == "" {
 		host = r.RemoteAddr

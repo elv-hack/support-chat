@@ -248,6 +248,8 @@ func readJSONLimit(w http.ResponseWriter, r *http.Request, v any, limit int64) b
 func (a *App) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /api/login", a.login)
+	mux.HandleFunc("POST /api/agent/login", a.login)
+	mux.HandleFunc("POST /api/customer/login", a.login)
 	mux.HandleFunc("GET /api/client/config", a.clientConfig)
 	mux.HandleFunc("GET /api/ready", a.ready)
 	mux.HandleFunc("GET /api/version", func(w http.ResponseWriter, r *http.Request) {
@@ -299,7 +301,11 @@ func (a *App) Handler() http.Handler {
 			http.NotFound(w, r)
 			return
 		}
-		if r.URL.Path == "/" || r.URL.Path == "/agent" || r.URL.Path == "/customer" {
+		if r.URL.Path == "/agent" {
+			http.ServeFile(w, r, filepath.Join(a.cfg.WebDir, "agent.html"))
+			return
+		}
+		if r.URL.Path == "/" || r.URL.Path == "/customer" {
 			http.ServeFile(w, r, filepath.Join(a.cfg.WebDir, "index.html"))
 			return
 		}

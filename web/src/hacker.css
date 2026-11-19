@@ -14,3 +14,13 @@ input,textarea,select{color:#dff7e9;background:#080f0b;border:1px solid #2c4c3b;
 .edit-message-modal{width:520px}.edit-message-modal fieldset{border:0;padding:0;margin:0;min-width:0}.edit-message-modal select{display:block;width:100%;padding:12px;margin-top:9px;font:inherit}.edit-message-modal textarea{display:block;margin-top:10px;resize:vertical;line-height:1.8}.edit-message-modal .manage-actions .primary{margin-top:0;justify-content:center}.edit-record .secondary{display:flex;align-items:center;gap:8px;margin-top:16px}.edit-attachment{margin-top:18px;padding:12px;border:1px solid #2d4c37;border-radius:5px;font-size:12px;overflow-wrap:anywhere}.edit-attachment>span{display:block;color:#9bceac;margin-bottom:10px}.edit-attachment img{max-width:100%}.edit-upload input{font-size:12px}.edit-record .recording-strip{flex-wrap:wrap}
 @media(max-width:799px){.login-panel{background:#060d08a6}.sidebar{background:#080f0be8}.chat-header{gap:6px;padding-left:12px;padding-right:12px}.header-avatar{width:30px;height:30px}.chat-header .text-button{font-size:10px;padding:6px 4px}.chat-header .icon-button{padding:4px}.message-meta{gap:6px}.library-panel{border-radius:0}.edit-message-modal{max-height:92dvh}.story-content h1{font-size:32px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;scroll-behavior:auto!important;transition:none!important}}
+
+.login-shell { display: grid; grid-template-columns: 1fr; }
+.login-panel { min-height: 100dvh; padding: 28px; align-items: center; }
+.login-form { width: min(100%, 340px); margin: auto; }
+.login-form h1 { color: var(--green); font-size: 32px; letter-spacing: -.05em; }
+.login-form button { justify-content: center; }
+.workspace { max-width: 960px; margin-inline: auto; }
+.workspace .sidebar { width: 100%; min-width: 0; border: 0; }
+.workspace .mobile-back { display: block; }
+.composer-bottom .send-button { margin-left: auto; }

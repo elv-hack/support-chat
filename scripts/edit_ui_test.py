@@ -25,7 +25,7 @@ def main():
    agent.emulate_media(reduced_motion='reduce');agent.evaluate('()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))');before=agent.locator('canvas').evaluate('(c)=>c.toDataURL()');agent.wait_for_timeout(650);assert agent.locator('canvas').evaluate('(c)=>c.toDataURL()')==before;agent.emulate_media(reduced_motion='no-preference');checks.append('dark default, bounded canvas, reduced-motion stops animation')
    def login(page,role,login_name,pw):
     page.goto(base+'/'+role);page.get_by_label('账号',exact=True).fill(login_name);page.get_by_label('密码',exact=True).fill(pw)
-    with page.expect_response(lambda r:r.url.endswith('/api/login') and r.request.method=='POST') as response:page.get_by_role('button',name='登录',exact=False).first.click()
+    with page.expect_response(lambda r:r.url.endswith('/api/'+role+'/login') and r.request.method=='POST') as response:page.get_by_role('button',name='登录',exact=False).first.click()
     expect(page.locator('.workspace')).to_be_visible();return response.value.json()['token']
    admin=login(agent,'agent',name,password);token=login(client,'customer',username,userpass);agent.locator('.customer-row').filter(has_text=username).click()
    assert client.get_by_text('只属于你和客服的对话').count()==0;expect(client.get_by_label('录制语音').locator('svg')).to_have_count(1)

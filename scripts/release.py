@@ -4,7 +4,7 @@ ROOT=pathlib.Path(__file__).resolve().parents[1]
 RELEASES=ROOT/'artifacts/releases'
 FILES=['VERSION.json','README.md','OPERATIONS.md','LIBRARY.md','UPDATES.md','.gitignore','.gitattributes','manage']
 DIRS=['server','web/src','android/app/src','android/gradle','deploy','scripts','.github']
-EXTRA=['web/package.json','web/package-lock.json','web/index.html','web/tsconfig.json','web/vite.config.ts','android/app/build.gradle','android/build.gradle','android/settings.gradle','android/gradle.properties','android/gradlew','android/gradlew.bat']
+EXTRA=['web/package.json','web/package-lock.json','web/index.html','web/agent.html','web/tsconfig.json','web/vite.config.ts','android/app/build.gradle','android/build.gradle','android/settings.gradle','android/gradle.properties','android/gradlew','android/gradlew.bat']
 
 def run(args,cwd=ROOT,env=None,capture=False):
     result=subprocess.run([str(a) for a in args],cwd=cwd,env=env,check=False,text=True,stdout=subprocess.PIPE if capture else None)
