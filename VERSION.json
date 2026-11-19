@@ -1,6 +1,6 @@
 {
-  "version": "0.4.0",
-  "versionCode": 6,
-  "schemaVersion": 3,
+  "version": "0.5.0",
+  "versionCode": 7,
+  "schemaVersion": 4,
   "openimCommit": "9502a1a15fe63f6342fb1e2d8068346a82f278d8"
 }

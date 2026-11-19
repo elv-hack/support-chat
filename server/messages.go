@@ -22,6 +22,8 @@ func (a *App) messages(w http.ResponseWriter, r *http.Request, u User) {
 		a.history(w, r, u, c)
 	case "POST":
 		a.send(w, r, u, c)
+	case "PATCH":
+		a.editMessage(w, r, u, c)
 	case "DELETE":
 		if u.Role != "agent" {
 			problem(w, 403, "仅客服可删除消息")
@@ -90,6 +92,10 @@ func (a *App) history(w http.ResponseWriter, r *http.Request, u, c User) {
 				continue
 			}
 			_, _ = a.db.Exec("UPDATE sends SET state='delivered',remote_id=?,seq=? WHERE id=? AND customer=? AND state NOT IN ('deleted','deleted_pending')", m.ClientID, m.Seq, msg.ID, c.ID)
+			if e := a.applyEdit(c.ID, &msg); e != nil {
+				problem(w, 503, "消息修订读取失败，请重试")
+				return
+			}
 			// Attachment metadata is authoritative in our private store, never trust arbitrary URLs in IM content.
 			if msg.Attachment != nil {
 				att, e := a.getAttachment(msg.Attachment.ID)
@@ -245,8 +251,12 @@ func (a *App) deleteMessages(w http.ResponseWriter, r *http.Request, c User) {
 			return
 		}
 		for _, m := range msgs {
+			if m.Seq != in.Seq || !((m.SendID == c.ID && m.RecvID == a.cfg.AgentID) || (m.SendID == a.cfg.AgentID && m.RecvID == c.ID)) {
+				continue
+			}
 			if p, ok := decodeMessage(m); ok {
 				sendID = p.ID
+				break
 			}
 		}
 	}
@@ -284,6 +294,13 @@ func (a *App) deleteMessages(w http.ResponseWriter, r *http.Request, c User) {
 		}
 		if err == nil {
 			err = pruneCustomerDeliveriesTx(tx, c.ID)
+		}
+	}
+	if err == nil {
+		if in.All {
+			_, err = tx.Exec("DELETE FROM message_edits WHERE customer=?", c.ID)
+		} else {
+			_, err = tx.Exec("DELETE FROM message_edits WHERE customer=? AND seq=?", c.ID, in.Seq)
 		}
 	}
 	if err != nil {

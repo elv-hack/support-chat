@@ -48,7 +48,7 @@ public class MainActivity extends Activity {
     }
     private void showSetup(){
         generation++;resolving=false;destroyChat();
-        LinearLayout layout=new LinearLayout(this);layout.setOrientation(LinearLayout.VERTICAL);layout.setPadding(40,100,40,40);layout.setBackgroundColor(Color.rgb(248,249,245));
+        LinearLayout layout=new LinearLayout(this);layout.setOrientation(LinearLayout.VERTICAL);layout.setPadding(40,100,40,40);layout.setBackgroundColor(Color.rgb(7,13,9));
         TextView title=new TextView(this);title.setText("一对一 · 连接设置");title.setTextSize(25);layout.addView(title);
         TextView tip=new TextView(this);tip.setText("填写管理员提供的独立配置入口。业务域名更换后，应用会从此入口取得新地址。旧版直连模式可仅填写业务地址。连接设置会结束当前会话。");tip.setPadding(0,24,0,20);layout.addView(tip);
         EditText entry=addressInput(layout,"固定配置入口 https://config.example.com",directory);
@@ -116,7 +116,7 @@ public class MainActivity extends Activity {
     private void openChat(){
         if(!validServer(server)){server="";showSetup();return;}
         CookieManager.getInstance().setAcceptCookie(false);CookieManager.getInstance().removeAllCookies(null);WebStorage.getInstance().deleteAllData();
-        web=new WebView(this);web.setSaveEnabled(false);web.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS);
+        web=new WebView(this);web.setBackgroundColor(Color.rgb(7,13,9));web.setSaveEnabled(false);web.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS);
         web.setOnApplyWindowInsetsListener((v,insets)->{v.setPadding(insets.getSystemWindowInsetLeft(),insets.getSystemWindowInsetTop(),insets.getSystemWindowInsetRight(),insets.getSystemWindowInsetBottom());return insets.consumeSystemWindowInsets();});
         WebSettings settings=web.getSettings();settings.setUserAgentString(settings.getUserAgentString()+" SupportChatAndroid/"+BuildConfig.VERSION_NAME);settings.setJavaScriptEnabled(true);settings.setDomStorageEnabled(false);settings.setDatabaseEnabled(false);settings.setCacheMode(WebSettings.LOAD_NO_CACHE);settings.setAllowFileAccess(false);settings.setAllowContentAccess(true);settings.setSaveFormData(false);settings.setGeolocationEnabled(false);settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);settings.setMediaPlaybackRequiresUserGesture(true);
         WebView.setWebContentsDebuggingEnabled(false);

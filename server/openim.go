@@ -167,6 +167,8 @@ type Payload struct {
 	Attachment *Attachment `json:"attachment,omitempty"`
 }
 type Message struct {
+	EditVersion int64 `json:"editVersion"`
+	EditedAt    int64 `json:"editedAt,omitempty"`
 	Payload
 	Seq    int64  `json:"seq"`
 	Sender string `json:"sender"`

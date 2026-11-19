@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount } from 'vue';
+import MicrophoneIcon from './MicrophoneIcon.vue';
 import type { Attachment } from './types';
 const props = defineProps<{ attachment: Attachment; load: (id: string) => Promise<Response> }>();
 const emit = defineEmits<{ preview: [id: string, url: string, name: string, text?: string] }>();
@@ -26,7 +27,7 @@ onBeforeUnmount(() => { alive = false; player.value?.pause(); if (url.value) URL
 <template>
   <div class="attachment">
     <button v-if="attachment.kind === 'image' && url" class="image-button" @click="emit('preview', attachment.id, url, attachment.name)"><img :src="url" :alt="attachment.name" draggable="false"></button>
-    <div v-else-if="attachment.kind === 'voice'" class="voice"><span class="voice-label">◖ 语音 · {{ Math.ceil(attachment.duration) }}″</span><audio v-if="url" ref="player" :src="url" controls controlslist="nodownload noplaybackrate" preload="none" /></div>
+    <div v-else-if="attachment.kind === 'voice'" class="voice"><span class="voice-label"><MicrophoneIcon /> 语音 · {{ Math.ceil(attachment.duration) }}″</span><audio v-if="url" ref="player" :src="url" controls controlslist="nodownload noplaybackrate" preload="none" /></div>
     <button v-else-if="attachment.kind === 'file'" class="file-card" @click="fetchMedia"><span class="file-icon">↗</span><span><b>{{ attachment.name }}</b><small>{{ (attachment.size / 1024).toFixed(1) }} KB · 点击预览</small></span></button>
     <small v-if="busy">正在读取…</small><button v-if="error" class="media-error" @click="fetchMedia">{{ error }} · 重试</button>
   </div>

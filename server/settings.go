@@ -47,7 +47,7 @@ func (p Permissions) allows(kind string) bool {
 	return false
 }
 
-const defaultSettingsJSON = `{"brandName":"一对一","agentName":"专属客服","welcomeTitle":"你好，很高兴为你服务","welcomeText":"文字、图片或语音，选择你喜欢的方式。","announcement":"","primaryColor":"#275b4c"}`
+const defaultSettingsJSON = `{"brandName":"一对一","agentName":"专属客服","welcomeTitle":"你好，很高兴为你服务","welcomeText":"文字、图片或语音，选择你喜欢的方式。","announcement":"","primaryColor":"#71f6b1"}`
 
 type AppSettings struct {
 	BrandName    string `json:"brandName"`

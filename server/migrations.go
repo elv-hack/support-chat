@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-const schemaVersion = 3
+const schemaVersion = 4
 
 // All migrations are atomic; an old executable refuses a newer database schema.
 func migrate(db *sql.DB) error {
@@ -71,7 +71,8 @@ CREATE INDEX IF NOT EXISTS library_delivery_customer ON library_deliveries(custo
 CREATE TABLE IF NOT EXISTS library_delivery_assets(delivery TEXT NOT NULL,attachment TEXT PRIMARY KEY);
 CREATE TABLE IF NOT EXISTS app_settings(id INTEGER PRIMARY KEY CHECK(id=1),payload TEXT NOT NULL,revision INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS service_identity(id INTEGER PRIMARY KEY CHECK(id=1),value TEXT NOT NULL);
-PRAGMA user_version=3;`); err != nil {
+CREATE TABLE IF NOT EXISTS message_edits(customer TEXT NOT NULL,seq INTEGER NOT NULL,message_id TEXT NOT NULL,payload TEXT NOT NULL,revision INTEGER NOT NULL,edited_at INTEGER NOT NULL,PRIMARY KEY(customer,seq));
+PRAGMA user_version=4;`); err != nil {
 		return err
 	}
 	if version < 3 {
@@ -108,6 +109,11 @@ PRAGMA user_version=3;`); err != nil {
 	}
 	if _, err = tx.Exec("INSERT OR IGNORE INTO app_settings(id,payload,revision) VALUES(1,?,1)", defaultSettingsJSON); err != nil {
 		return err
+	}
+	if version < 4 {
+		if _, err = tx.Exec(`UPDATE app_settings SET payload=replace(payload,'"primaryColor":"#275b4c"','"primaryColor":"#71f6b1"'),revision=revision+1 WHERE instr(payload,'"primaryColor":"#275b4c"')>0`); err != nil {
+			return err
+		}
 	}
 	return tx.Commit()
 }
